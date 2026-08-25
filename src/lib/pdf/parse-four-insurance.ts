@@ -6,7 +6,7 @@ const DATE_PATTERN = String.raw`\d{4}[.\-/]?\d{1,2}[.\-/]?\d{1,2}`;
 
 function extractWorkplaceName(text: string, lines: string[]): string | null {
   const match = text.match(
-    /사업장명\s*[:：]?\s*([\s\S]+?)(?=\s+(?:사업장\s*관리번호|사업장관리번호|관리번호|대표자|발급기준일|발급일|순번|가입자\s*성명|성명)(?:\s|[:：]|$))/,
+    /사업장명\s*[:：]?\s*([\s\S]+?)(?=\s*(?:사업장\s*관리번호|사업장관리번호|관리번호|대표자|발급기준일|발급일|순번|가입자\s*성명|성명)(?:\s|[:：]|\d|$))/,
   );
   if (match?.[1]) return match[1].replace(/\s+/g, " ").trim() || null;
   return findLabeledValue(lines, /사업장명/, STOP_LABELS);
@@ -53,7 +53,7 @@ export function parseFourInsurance(text: string): ExtractedEvidenceData {
 
   const flattenedText = text.replace(/\s+/g, " ").trim();
   const listRowPattern = new RegExp(
-    String.raw`(?:^|\s)(\d{1,4})\s+([가-힣]{2,5})\s+(${DATE_PATTERN})\s+(${DATE_PATTERN}|[-–])\s+(${DATE_PATTERN}|[-–])\s+(${DATE_PATTERN}|[-–])(?=\s|$)`,
+    String.raw`(?:^|\s)(\d{1,4})\s*([가-힣]{2,5})\s*(${DATE_PATTERN})\s*(${DATE_PATTERN}|[-–])\s*(${DATE_PATTERN}|[-–])\s*(${DATE_PATTERN}|[-–])(?=\s|적용|$)`,
     "g",
   );
 
