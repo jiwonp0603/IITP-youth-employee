@@ -5,7 +5,14 @@ export async function extractPdfText(data: Uint8Array): Promise<string> {
   // DOMMatrix even though this route only extracts text. Provide the minimal
   // constructor before loading pdf-parse so the Node runtime can initialize.
   const nodeGlobals = globalThis as unknown as { DOMMatrix?: unknown };
-  nodeGlobals.DOMMatrix ??= class DOMMatrix {};
+  try {
+    const canvas = await import("@napi-rs/canvas");
+    nodeGlobals.DOMMatrix ??= canvas.DOMMatrix;
+  } catch {
+    // The fallback keeps local/build environments without a native canvas
+    // binary usable for text-only PDFs.
+    nodeGlobals.DOMMatrix ??= class DOMMatrix {};
+  }
 
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data });
