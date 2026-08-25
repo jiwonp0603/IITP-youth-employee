@@ -106,7 +106,11 @@ export async function POST(request: Request) {
     try {
       rawText = await extractPdfText(bytes);
     } catch (error) {
-      console.error("PDF text extraction failed.", error instanceof Error ? error.message : error);
+      console.error("PDF text extraction failed.", {
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return response({
         status: "failed",
         evidenceType,
