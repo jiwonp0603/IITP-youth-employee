@@ -11,7 +11,11 @@ import type {
 
 export const runtime = "nodejs";
 
-const MAX_PDF_SIZE = 10 * 1024 * 1024;
+// Vercel Functions have a 4.5 MB request-body limit. Leave headroom for
+// multipart/form-data overhead so the platform does not reject the request
+// before this handler can return a useful error.
+const MAX_PDF_SIZE = 4 * 1024 * 1024;
+const MAX_RAW_TEXT_RESPONSE = 20_000;
 const EVIDENCE_TYPES: EvidenceType[] = [
   "health-insurance-qualification",
   "four-major-insurance-list",
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
         status: "failed",
         evidenceType,
         data: null,
-        message: "파일 크기는 10MB 이하만 업로드할 수 있습니다.",
+        message: "파일 크기는 4MB 이하만 업로드할 수 있습니다.",
       }, 413);
     }
 
@@ -101,7 +105,8 @@ export async function POST(request: Request) {
     let rawText: string;
     try {
       rawText = await extractPdfText(bytes);
-    } catch {
+    } catch (error) {
+      console.error("PDF text extraction failed.", error instanceof Error ? error.message : error);
       return response({
         status: "failed",
         evidenceType,
@@ -129,9 +134,10 @@ export async function POST(request: Request) {
       evidenceType,
       data,
       ...(status === "partial" ? { message: "일부 정보를 자동으로 확인하지 못했습니다." } : {}),
-      rawText,
+      rawText: rawText.slice(0, MAX_RAW_TEXT_RESPONSE),
     });
-  } catch {
+  } catch (error) {
+    console.error("Evidence extraction request failed.", error instanceof Error ? error.message : error);
     return response({
       status: "failed",
       evidenceType,

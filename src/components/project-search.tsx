@@ -35,7 +35,7 @@ type SessionRegistration = {
   evaluation: YouthEvaluation;
 };
 
-const MAX_PDF_SIZE = 10 * 1024 * 1024;
+const MAX_PDF_SIZE = 4 * 1024 * 1024;
 
 function formatDate(value: string): string {
   return value.replaceAll("-", ".");
@@ -353,10 +353,24 @@ function YouthRegistration({
         method: "POST",
         body: formData,
       });
-      const result = await apiResponse.json() as ExtractionResponse;
+      let result: ExtractionResponse;
+      try {
+        result = await apiResponse.json() as ExtractionResponse;
+      } catch {
+        const message = apiResponse.status === 413
+          ? "PDF 파일이 너무 큽니다. 4MB 이하의 PDF를 사용해 주세요."
+          : `PDF 분석 서버가 응답하지 않았습니다. (HTTP ${apiResponse.status})`;
+        setExtractionResult({
+          status: "failed",
+          evidenceType,
+          data: null,
+          message,
+        });
+        return;
+      }
       setExtractionResult(result);
 
-      if (!apiResponse.ok || result.status === "failed") return;
+    if (!apiResponse.ok || result.status === "failed" || result.status === "unsupported") return;
 
       const evaluation = evaluateYouthEmployee({
         employee,
@@ -382,12 +396,13 @@ function YouthRegistration({
         setPendingReviewId(employee.id);
         setSuccessMessage(`${employee.name} 님이 검토 필요 상태로 이번 세션 목록에 추가되었습니다. 입력정보를 수정한 뒤 다시 검증할 수 있습니다.`);
       }
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
       setExtractionResult({
         status: "failed",
         evidenceType,
         data: null,
-        message: "증빙자료 분석 중 오류가 발생했습니다. 다시 시도해 주세요.",
+        message: `증빙자료 분석 중 오류가 발생했습니다: ${message}`,
       });
     } finally {
       setIsAnalyzing(false);
@@ -541,7 +556,7 @@ function YouthRegistration({
               <span className="pdf-mark" aria-hidden="true">PDF</span>
               <div>
                 <strong>{evidenceFile ? "선택한 PDF 파일" : "PDF 파일을 선택하거나 여기에 끌어 놓으세요."}</strong>
-                <p>{evidenceFile ? "다른 파일을 선택하면 기존 파일이 교체됩니다." : "PDF 형식, 최대 10MB"}</p>
+              <p>{evidenceFile ? "다른 파일을 선택하면 기존 파일이 교체됩니다." : "PDF 형식, 최대 4MB"}</p>
               </div>
               <label className="file-select-button" htmlFor="evidence-file">
                 {evidenceFile ? "다른 파일 선택" : "파일 선택"}
