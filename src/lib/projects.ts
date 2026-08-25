@@ -3,6 +3,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import * as XLSX from "xlsx";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type Project = {
   projectId: string;
@@ -45,7 +46,7 @@ function toCount(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function loadProjects(): ProjectLoadResult {
+function loadProjectsFromWorkbook(): ProjectLoadResult {
   const workbookPath = path.join(process.cwd(), "data", "projects.xlsx");
 
   if (!fs.existsSync(workbookPath)) {
@@ -120,5 +121,36 @@ export function loadProjects(): ProjectLoadResult {
       ok: false,
       message: "Excel 파일을 읽는 중 오류가 발생했습니다. 파일 형식과 내용을 확인해 주세요.",
     };
+  }
+}
+
+export async function loadProjects(): Promise<ProjectLoadResult> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return loadProjectsFromWorkbook();
+  }
+
+  try {
+    const supabase = createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("project_id, project_name, company_name, company_type, current_year_period, required_youth_count, actual_youth_count")
+      .order("project_name");
+
+    if (error) throw error;
+
+    const projects = (data ?? []).map((row) => ({
+      projectId: row.project_id,
+      projectName: row.project_name,
+      companyName: row.company_name,
+      companyType: row.company_type,
+      currentYearPeriod: row.current_year_period,
+      requiredYouthCount: row.required_youth_count,
+      actualYouthCount: row.actual_youth_count,
+    }));
+
+    return { ok: true, projects };
+  } catch (error) {
+    console.error("Supabase 과제정보를 읽는 중 오류가 발생했습니다. Excel 백업을 사용합니다.", error);
+    return loadProjectsFromWorkbook();
   }
 }

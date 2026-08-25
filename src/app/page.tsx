@@ -3,8 +3,8 @@ import { loadProjects } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const result = loadProjects();
+export default async function Home() {
+  const result = await loadProjects();
 
   return (
     <main>
